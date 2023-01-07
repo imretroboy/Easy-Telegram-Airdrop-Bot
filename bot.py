@@ -1,5 +1,6 @@
 # %% Dependencies
 from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove, Update, InlineKeyboardMarkup
+import json
 from bson.json_util import dumps
 from multicolorcaptcha import CaptchaGenerator
 from jokes import getJoke
@@ -174,6 +175,10 @@ def getUserInfo(id):
         # user["refList"] = []
     return user
 
+def is_whitelisted(wallet_address):
+    with open("whitelist.json", "r") as f:
+        whitelist = json.load(f)
+    return wallet_address in whitelist
 
 def maxNumberReached(update, context):
     update.message.reply_text("Hey! Thanks for your interest but it seems like the maximum amount of users has been reached.")
@@ -352,14 +357,22 @@ def end_conversation(update, context):
         [["Cancel"],["/restart"]]
     ))
         return END_CONVERSATION
-    USERINFO[user.id].update({"bep20": update.message.text})
-    USERINFO[user.id].update({"userId": user.id})
-    USERINFO[user.id].update({"chatId": update.effective_chat.id})
-    USERINFO[user.id].update({"name": getName(user)})
-    USERINFO[user.id].update({"username": user.username})
-    print(USERINFO[user.id])
-    users.insert_one(USERINFO[user.id])
-    url = f"https://t.me/{context.bot.username}?start={user.id}"
+    
+    # Check if the wallet address is in the whitelist
+    if is_whitelisted(update.message.text):
+        USERINFO[user.id].update({"bep20": update.message.text})
+        USERINFO[user.id].update({"userId": user.id})
+        USERINFO[user.id].update({"chatId": update.effective_chat.id})
+        USERINFO[user.id].update({"name": getName(user)})
+        USERINFO[user.id].update({"username": user.username})
+        print(USERINFO[user.id])
+        users.insert_one(USERINFO[user.id])
+        url = f"https://t.me/{context.bot.username}?start={user.id}"
+        # ...
+    else:
+        update.message.reply_text("Sorry, you are not eligible for the airdrop.")
+        return ConversationHandler.END
+
 
     # check refferal
     # if USERINFO[user.id]["ref"] != False:
